@@ -14,7 +14,7 @@
 # File: MouseTouchInputs
 # Version: 1.3.1
 # Copyright Jeff Kosowsky
-# Date: March 2026
+# Date: April 2026
 #
 #### DESCRIPTION:
    Full-featured X11 parser and command launcher for multi-button press and

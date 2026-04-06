@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.1 - April 2026
+
+- Updated auto-login JS injection in 'userconf.lua' for 2026.4+
+- Fixed whitelist logic to allow commands outside of default path
+
 ## v1.3.0 - February 2026
 
 - Added more key bindings for opening/closing/rotating tabs and windows

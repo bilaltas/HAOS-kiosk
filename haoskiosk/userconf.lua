@@ -1,9 +1,9 @@
 --[=[
 Add-on: HAOS Kiosk Display (haoskiosk)
 File: userconf.lua for HA minimal browser run on server
-Version: 1.3.0
+Version: 1.3.1
 Copyright Jeff Kosowsky
-Date: February 2026
+Date: April 2026
 
 Code does the following:
     - Sets browser window to fullscreen
@@ -198,28 +198,28 @@ webview.add_signal("init", function(view)
             if consecutive_load_failures[v] < MAX_LOAD_FAILURES then
                 msg.warn("Page load failed (%d/%d): %s", consecutive_load_failures[v], MAX_LOAD_FAILURES, v.uri or "unknown")
              else
-		local ffi = require("ffi")
-		ffi.cdef("int getpid(void);")
-		local luakit_pid = ffi.C.getpid()
+                local ffi = require("ffi")
+                ffi.cdef("int getpid(void);")
+                local luakit_pid = ffi.C.getpid()
 
-		local url = v.uri or ha_url
+                local url = v.uri or ha_url
                 msg.error("RESTARTING Luakit (PID=%d) after %d page load failures: %s", luakit_pid, MAX_LOAD_FAILURES, url)
-		-- Send kill signal to current luakit pid, wait to complete kill, wait for dbus to fully disconnect, remove /tmp ipc file, launch new luakit, echo PID
-		local cmd = string.format([[
-		  (kill %d;
+                -- Send kill signal to current luakit pid, wait to complete kill, wait for dbus to fully disconnect, remove /tmp ipc file, launch new luakit, echo PID
+                local cmd = string.format([[
+                  (kill %d;
                    while kill -0 %d 2>/dev/null; do sleep 0.1; done;
                    sleep 2;
-		   rm -f /tmp/luakit-%d-* 2>/dev/null;
+                   rm -f /tmp/luakit-%d-* 2>/dev/null;
                    luakit '%s' &
                    echo "New Luakit PID=$!") &
-		]], luakit_pid, luakit_pid, luakit_pid, url)
-		os.execute(cmd)
+                ]], luakit_pid, luakit_pid, luakit_pid, url)
+                os.execute(cmd)
             end
 
         elseif status ~= "finished" then return end  -- Only proceed when the page is fully loaded
-	    consecutive_load_failures[v] = 0  -- Reset consecutive load failures counter
+            consecutive_load_failures[v] = 0  -- Reset consecutive load failures counter
 
-	 -- Print RSS  memory consumption
+         -- Print RSS  memory consumption
         local mem_file = io.open("/proc/self/statm", "r")
         local rss_mb = "NA"
         if mem_file then
@@ -249,16 +249,25 @@ webview.add_signal("init", function(view)
             local js_auto_login = string.format([[
                 setTimeout(function() {
                     try {
-                        const usernameField = document.querySelector('input[autocomplete="username"]');
-                        const passwordField = document.querySelector('input[autocomplete="current-password"]');
+                        // 2026.4+ working version uses shadowRoot; preserve backward-compatibility
+                        const haInputs = document.querySelectorAll('ha-input');
+                        const usernameField = haInputs[0]?.shadowRoot?.querySelector('wa-input')?.shadowRoot?.querySelector('input[autocomplete="username"]')
+                            || document.querySelector('input[autocomplete="username"]');
+                        const passwordField = haInputs[1]?.shadowRoot?.querySelector('wa-input')?.shadowRoot?.querySelector('input[autocomplete="current-password"]')
+                            || document.querySelector('input[autocomplete="current-password"]');
                         const haCheckbox = document.querySelector('ha-checkbox');
-                        const submitButton = document.querySelector('ha-button, mwc-button');
+                        const submitButton = document.querySelector('ha-button');
 
-                        if (usernameField && passwordField && submitButton) {
+                        if (usernameField && passwordField) {  // Note post 2026.4 requires 'change' event oo
                             usernameField.value = '%s';
                             usernameField.dispatchEvent(new Event('input', { bubbles: true }));
+                            usernameField.dispatchEvent(new Event('change', { bubbles: true }));
+
                             passwordField.value = '%s';
                             passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+                            passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+
+                            console.log('Auto-login: fields filled + events dispatched');
                         } else {
                             console.log('Auto-login failed: missing elements', {
                                 username: !!usernameField,
@@ -272,7 +281,7 @@ webview.add_signal("init", function(view)
                             haCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
                         }
 
-                        submitButton.click();
+                        if (submitButton) submitButton.click();
                     } catch(e) { console.warn('Auto-login JS error:', e); }
                 }, %d);
             ]], single_quote_escape(username), single_quote_escape(password), login_delay * 1000)
